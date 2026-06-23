@@ -3,6 +3,7 @@ import sys
 import pygame
 from settings import Settings
 from ship import Ship
+from bullet import Bullet
 
 class AlienInvation:
     #管理游戏
@@ -21,12 +22,14 @@ class AlienInvation:
 
         self.clock      =   pygame.time.Clock()
         self.ship       =   Ship(self)
+        self.bullets    =   pygame.sprite.Group()
 
     def run_game(self):
         #运行游戏
         while True:
             self._check_events()
             self.ship.update()
+            self._update_bullet()
             self._update_screen()
             self.clock.tick(60)
 
@@ -46,6 +49,8 @@ class AlienInvation:
             self.ship.moving_left   =   True
         elif event.key  ==   pygame.K_q:
             sys.exit()
+        elif event.key  ==   pygame.K_SPACE:
+            self._fire_bullet()
 
     def _check_keyup_evnets(self,event):
         if event.key    ==  pygame.K_RIGHT:
@@ -53,8 +58,24 @@ class AlienInvation:
         elif event.key  ==  pygame.K_LEFT:
             self.ship.moving_left   =   False
 
+    def _fire_bullet(self):
+        if len(self.bullets) < self.settings.bullets_allowed:
+            new_bullet  =   Bullet(self)
+            self.bullets.add(new_bullet)
+
+    def _update_bullet(self):
+        self.bullets.update()
+        for bullet in self.bullets.copy():
+            if bullet.rect.bottom <= 0:
+                self.bullets.remove(bullet)
+        # print(len(self.bullets))
+
     def _update_screen(self):
         self.screen.fill(self.settings.bg_color)
+
+        for bullet in self.bullets.sprites():
+            bullet.draw_bullet()
+
         self.ship.blitme()
         pygame.display.flip()
 
