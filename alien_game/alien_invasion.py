@@ -1,9 +1,12 @@
 import sys
 
 import pygame
+
+from alien_game import alien
 from settings import Settings
 from ship import Ship
 from bullet import Bullet
+from alien import Alien
 
 class AlienInvation:
     #管理游戏
@@ -23,13 +26,16 @@ class AlienInvation:
         self.clock      =   pygame.time.Clock()
         self.ship       =   Ship(self)
         self.bullets    =   pygame.sprite.Group()
+        self.aliens     =   pygame.sprite.Group()
+        self._create_fleet()
 
     def run_game(self):
         #运行游戏
         while True:
             self._check_events()
             self.ship.update()
-            self._update_bullet()
+            self._update_bullets()
+            self._update_aliens()
             self._update_screen()
             self.clock.tick(60)
 
@@ -63,12 +69,65 @@ class AlienInvation:
             new_bullet  =   Bullet(self)
             self.bullets.add(new_bullet)
 
-    def _update_bullet(self):
+    def _update_bullets(self):
         self.bullets.update()
+        # 删除已消失的子弹
         for bullet in self.bullets.copy():
             if bullet.rect.bottom <= 0:
                 self.bullets.remove(bullet)
         # print(len(self.bullets))
+        self._check_bullet_alien_collisions()
+
+    def _check_bullet_alien_collisions(self):
+        # 检查是否有子弹击中了外星人
+        # 如果是，就删除相应的子弹和外星人
+        collisions = pygame.sprite.groupcollide(self.bullets, self.aliens, True, True)
+
+        if not self.aliens:
+            # 删除现有的子弹并创建一个新的外星舰队
+            self.bullets.empty()
+            self._create_fleet()
+
+    def _create_alien(self,x_position,y_position):
+        new_alien = Alien(self)
+        new_alien.x = x_position
+        new_alien.rect.x = x_position
+        new_alien.rect.y = y_position
+        self.aliens.add(new_alien)
+
+    def _update_aliens(self):
+        """检查是否有外星人位于屏幕边缘，并更新整个外星舰队的位置"""
+        self._check_fleet_edges()
+        self.aliens.update()
+
+        # 检测外星人和飞船之间的碰撞
+        if pygame.sprite.spritecollideany(self.ship,self.aliens):
+            print("Ship hit!!!")
+
+    def _create_fleet(self):
+        alien   =   Alien(self)
+        alien_width, alien_height   =   alien.rect.size
+        current_x, current_y        =   alien_width, alien_height
+
+        while current_y <(self.settings.screen_height - 3 * alien_height):
+            while current_x < (self.settings.screen_width - 2 * alien_width):
+                self._create_alien(current_x,current_y)
+                current_x += 2 * alien_width
+            current_x = alien_width
+            current_y += 2 * alien_height
+
+    def _check_fleet_edges(self):
+        """在有外星人到达边缘时采取相应的措施"""
+        for alien in self.aliens.sprites():
+            if alien.check_edges():
+                self._change_fleet_direction()
+                break
+
+    def _change_fleet_direction(self):
+        """将整个外星舰队向下移动，并改变它们的方向"""
+        for alien in self.aliens.sprites():
+            alien.rect.y += self.settings.fleet_drop_speed
+        self.settings.fleet_direction *= -1
 
     def _update_screen(self):
         self.screen.fill(self.settings.bg_color)
@@ -77,6 +136,8 @@ class AlienInvation:
             bullet.draw_bullet()
 
         self.ship.blitme()
+        self.aliens.draw(self.screen)
+
         pygame.display.flip()
 
 if __name__ == '__main__':
